@@ -1,3 +1,4 @@
+
 def count_facing(heights: list) -> list:
     stack = []
     answ = []
