@@ -1,165 +1,154 @@
+import sys
+
 class Node:
-    def __init__(self, data):
-        self.data = data
+    def __init__(self, key):
+        self.key = key
         self.left = self.right = None
 
 
-class Tree:
+class BinarySearchTree:
     def __init__(self):
         self.root = None
 
-    def __find(self, node, parent, value):
-        if node is None:
-            return None, parent, False
+    def insert(self, key):
+        self.root = self._insert(self.root, key)
 
-        if value == node.data:
-            return node, parent, True
+    def _insert(self, root, key):
+        if not root:
+            return Node(key)
 
-        if value < node.data:
-            if node.left:
-                return self.__find(node.left, node, value)
+        if key < root.key:
+            root.left = self._insert(root.left, key)
+        elif key > root.key:
+            root.right = self._insert(root.right, key)
 
-        if value > node.data:
-            if node.right:
-                return self.__find(node.right, node, value)
-
-    def insert(self, obj):
-        if self.root is None:
-            self.root = obj
-            return obj
-
-        s, p, fl_find = self.__find(self.root, None, obj.data)
-
-        if not fl_find and s:
-            if obj.data < s.data:
-                s.left = obj
-            else:
-                s.right = obj
-
-        return obj
-
-    def __del_leaf(self, s, p):
-        if p.left == s:
-            p.left = None
-        elif p.right == s:
-            p.right = None
-
-    def __del_one_child(self, s, p):
-        if p.left == s:
-            if s.left is None:
-                p.left = s.right
-            elif s.right is None:
-                p.left = s.left
-        elif p.right == s:
-            if s.left is None:
-                p.right = s.right
-            elif s.right is None:
-                p.right = s.left
-
-    def __find_min(self, node, parent):
-        if node.left:
-            return self.__find_min(node.left, node)
-
-        return node, parent
-
-    def del_node(self, key):
-        s, p, fl_find = self.__find(self.root, None, key)
-
-        if not fl_find:
-            return None
-
-        if s.left is None and s.right is None:
-            self.__del_leaf(s, p)
-        elif s.left is None or s.right is None:
-            self.__del_one_child(s, p)
-        else:
-            sr, pr = self.__find_min(s.right, s)
-            s.data = sr.data
-            self.__del_one_child(sr, pr)
+        return root
 
     def delete(self, key):
-        s, p, fl_find = self.__find(self.root, None, key)
+        self.root = self._delete(self.root, key)
 
-        if not fl_find:
-            return None
+    def _delete(self, root, key):
+        if not root:
+            return root
 
-        if s.left is None and s.right is None:
-            self.__del_leaf(s, p)
-        elif s.left is None or s.right is None:
-            self.__del_one_child(s, p)
+        if key < root.key:
+            root.left = self._delete(root.left, key)
+        elif key > root.key:
+            root.right = self._delete(root.right, key)
         else:
-            sr, pr = self.__find_min(s.right, s)
-            s.data = sr.data
-            self.__del_one_child(sr, pr)
+            if not root.left:
+                return root.right
+            elif not root.right:
+                return root.left
+
+            # Instead of directly updating the key, swap the key with the minimum key in the right subtree
+            min_right = self._find_min(root.right)
+            root.key = min_right.key
+            root.right = self._delete(root.right, min_right.key)
+
+        return root
+
 
     def exists(self, key):
-        s, p, fl_find = self.__find(self.root, None, key)
-        return fl_find
+        return self._exists(self.root, key)
 
-    def next(self, value):
-        current = self.root
+    def _exists(self, root, key):
+        if not root:
+            return False
+        if key == root.key:
+            return True
+        elif key < root.key:
+            return self._exists(root.left, key)
+        else:
+            return self._exists(root.right, key)
+
+    def next_element(self, key):
+        successor = self._find_next(self.root, key)
+        return successor.key if successor else 'none'
+
+    def _find_next(self, root, key):
         successor = None
-
-        while current is not None:
-            if value < current.data:
-                successor = current
-                current = current.left
-            elif value > current.data:
-                current = current.right
+        while root:
+            if key < root.key:
+                successor = root
+                root = root.left
+            elif key > root.key:
+                root = root.right
             else:
-                # Node with the given value found
-                if current.right is not None:
-                    # If the node has a right subtree, find the minimum in that subtree
-                    successor, _ = self.__find_min(current.right, current)
+                if root.right:
+                    return self._find_min(root.right)
                 break
+        return successor
 
-        if successor is not None:
-            return successor.data
-        else:
-            return "none"
+    def prev_element(self, key):
+        predecessor = self._find_prev(self.root, key)
+        return predecessor.key if predecessor else 'none'
 
-    def prev(self, value):
-        current = self.root
+    def _find_prev(self, root, key):
         predecessor = None
-
-        while current is not None:
-            if value > current.data:
-                predecessor = current
-                current = current.right
-            elif value < current.data:
-                current = current.left
+        while root:
+            if key < root.key:
+                root = root.left
+            elif key > root.key:
+                predecessor = root
+                root = root.right
             else:
-                # Node with the given value found
-                if current.left is not None:
-                    # If the node has a left subtree, find the maximum in that subtree
-                    predecessor, _ = self.__find_max(current.left, current)
+                if root.left:
+                    return self._find_max(root.left)
                 break
+        return predecessor
 
-        if predecessor is not None:
-            return predecessor.data
-        else:
-            return "none"
+    def _find_min(self, root):
+        while root.left:
+            root = root.left
+        return root
 
-    def __find_max(self, node, parent):
-        if node.right:
-            return self.__find_max(node.right, node)
+    def _find_max(self, root):
+        while root.right:
+            root = root.right
+        return root
 
-        return node, parent
+
+def process_operations(operations):
+    tree = BinarySearchTree()
+    results = []
+
+    for operation in operations:
+        try:
+            op, *args = operation.split()
+            key = int(args[0]) if args else None
+
+            if op == 'insert':
+                tree.insert(key)
+            elif op == 'delete':
+                tree.delete(key)
+            elif op == 'exists':
+                results.append('true' if tree.exists(key) else 'false')
+            elif op == 'next':
+                results.append(tree.next_element(key))
+            elif op == 'prev':
+                results.append(tree.prev_element(key))
+        except EOFError:
+            break
+
+    return results
 
 
-t = Tree()
+if __name__ == "__main__":
+    # Read input data until there is no more input
+    operations = []
+    while True:
+        try:
+            operation = input()
+            if not operation:
+                break
+            operations.append(operation)
+        except EOFError:
+            break
 
-while True:
-    line = input().split()
-    if not line:
-        break
-    elif line[0] == 'insert':
-        t.insert(Node(int(line[1])))
-    elif line[0] == 'delete':
-        t.delete(int(line[1]))
-    elif line[0] == 'exists':
-        print(t.exists(int(line[1])))
-    elif line[0] == 'next':
-        print(t.next(int(line[1])))
-    elif line[0] == 'prev':
-        print(t.prev(int(line[1])))
+    # Process operations
+    output = process_operations(operations)
+
+    # Print results
+    for result in output:
+        print(result)
