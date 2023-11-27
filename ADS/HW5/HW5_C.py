@@ -1,154 +1,112 @@
-import sys
+import random
+from sys import stdin
+
 
 class Node:
     def __init__(self, key):
         self.key = key
-        self.left = self.right = None
+        self.priority = random.randint(0, 1000)
+        self.left = None
+        self.right = None
 
 
-class BinarySearchTree:
-    def __init__(self):
-        self.root = None
+def split(node: Node, x):
+    if node is None:
+        return None, None
+    if node.key < x:
+        left, right = split(node.right, x)
+        node.right = left
+        return node, right
+    else:
+        left, right = split(node.left, x)
+        node.left = right
+        return left, node
 
-    def insert(self, key):
-        self.root = self._insert(self.root, key)
 
-    def _insert(self, root, key):
-        if not root:
-            return Node(key)
+def merge(Nleft: Node, Nright: Node):
+    if Nleft is None:
+        return Nright
+    if Nright is None:
+        return Nleft
+    if Nleft.priority > Nright.priority:
+        Nleft.right = merge(Nleft.right, Nright)
+        return Nleft
+    else:
+        Nright.left = merge(Nleft, Nright.left)
+        return Nright
 
-        if key < root.key:
-            root.left = self._insert(root.left, key)
-        elif key > root.key:
-            root.right = self._insert(root.right, key)
 
-        return root
+def insert(node: Node, x):
+    left, right = split(node, x)
+    a = merge(left, Node(x))
+    return merge(a, right)
 
-    def delete(self, key):
-        self.root = self._delete(self.root, key)
 
-    def _delete(self, root, key):
-        if not root:
-            return root
+def delete(node: Node, x):
+    left, right = split(node, x)
+    T1, T2 = split(right, x + 1)
+    return merge(left, T2)
 
-        if key < root.key:
-            root.left = self._delete(root.left, key)
-        elif key > root.key:
-            root.right = self._delete(root.right, key)
+
+def exists(node: Node, x):
+    while node is not None:
+        if node.key == x:
+            return 'true'
+        if node.key < x:
+            node = node.right
         else:
-            if not root.left:
-                return root.right
-            elif not root.right:
-                return root.left
-
-            # Instead of directly updating the key, swap the key with the minimum key in the right subtree
-            min_right = self._find_min(root.right)
-            root.key = min_right.key
-            root.right = self._delete(root.right, min_right.key)
-
-        return root
+            node = node.left
+    if node is None:
+        return 'false'
 
 
-    def exists(self, key):
-        return self._exists(self.root, key)
-
-    def _exists(self, root, key):
-        if not root:
-            return False
-        if key == root.key:
-            return True
-        elif key < root.key:
-            return self._exists(root.left, key)
-        else:
-            return self._exists(root.right, key)
-
-    def next_element(self, key):
-        successor = self._find_next(self.root, key)
-        return successor.key if successor else 'none'
-
-    def _find_next(self, root, key):
-        successor = None
-        while root:
-            if key < root.key:
-                successor = root
-                root = root.left
-            elif key > root.key:
-                root = root.right
-            else:
-                if root.right:
-                    return self._find_min(root.right)
-                break
-        return successor
-
-    def prev_element(self, key):
-        predecessor = self._find_prev(self.root, key)
-        return predecessor.key if predecessor else 'none'
-
-    def _find_prev(self, root, key):
-        predecessor = None
-        while root:
-            if key < root.key:
-                root = root.left
-            elif key > root.key:
-                predecessor = root
-                root = root.right
-            else:
-                if root.left:
-                    return self._find_max(root.left)
-                break
-        return predecessor
-
-    def _find_min(self, root):
-        while root.left:
-            root = root.left
-        return root
-
-    def _find_max(self, root):
-        while root.right:
-            root = root.right
-        return root
+def prev(node: Node, x):
+    left, right = split(node, x)
+    answer = find_max(left)
+    merge(left, right)
+    return answer
 
 
-def process_operations(operations):
-    tree = BinarySearchTree()
-    results = []
-
-    for operation in operations:
-        try:
-            op, *args = operation.split()
-            key = int(args[0]) if args else None
-
-            if op == 'insert':
-                tree.insert(key)
-            elif op == 'delete':
-                tree.delete(key)
-            elif op == 'exists':
-                results.append('true' if tree.exists(key) else 'false')
-            elif op == 'next':
-                results.append(tree.next_element(key))
-            elif op == 'prev':
-                results.append(tree.prev_element(key))
-        except EOFError:
-            break
-
-    return results
+def next(node: Node, x):
+    left, right = split(node, x + 1)
+    answer = find_min(right)
+    merge(left, right)
+    return answer
 
 
-if __name__ == "__main__":
-    # Read input data until there is no more input
-    operations = []
-    while True:
-        try:
-            operation = input()
-            if not operation:
-                break
-            operations.append(operation)
-        except EOFError:
-            break
+def find_min(node: Node):
+    if node is None:
+        return 'none'
+    while node is not None:
+        res = node
+        node = node.left
+    return res.key
 
-    # Process operations
-    output = process_operations(operations)
 
-    # Print results
-    for result in output:
-        print(result)
+def find_max(node: Node):
+    if node is None:
+        return 'none'
+    while node is not None:
+        res = node
+        node = node.right
+    return res.key
+
+
+def inorder(root):
+    return inorder(root.left) + [root.key] + inorder(root.right) if root else []
+
+
+tree = None
+lines = stdin.readlines()
+for i in lines:
+    command, num = i.split()
+    if command == 'insert':
+        tree = insert(tree, int(num))
+    elif command == 'exists':
+        print(exists(tree, int(num)))
+    elif command == 'next':
+        print(next(tree, int(num)))
+    elif command == 'prev':
+        print(prev(tree, int(num)))
+    elif command == 'delete':
+        tree = delete(tree, int(num))
