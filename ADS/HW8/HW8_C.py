@@ -20,7 +20,7 @@ def lcs_sequence(X, Y):
             if X[i - 1] == Y[j - 1]:
                 dp[i][j] = dp[i - 1][j - 1] + 1
             else:
-                dp[i][j] = max(dp[i - 1][j], dp[i][j - 1]) 
+                dp[i][j] = max(dp[i - 1][j], dp[i][j - 1])
 
     i, j = m, n
     lcs = []
