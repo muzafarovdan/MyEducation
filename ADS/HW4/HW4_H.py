@@ -47,11 +47,9 @@ class MaxHeap:
                 break
 
 
-# Чтение входных данных
 n = int(input())
 commands = [input().split() for _ in range(n)]
 
-# Обработка команд
 heap = MaxHeap()
 result = []
 
@@ -63,6 +61,5 @@ for command in commands:
         max_value = heap.extract_max()
         result.append(max_value)
 
-# Вывод результата
 for max_value in result:
     print(max_value)
