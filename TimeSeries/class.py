@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 from prophet import Prophet
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import pickle
@@ -18,16 +19,17 @@ class RetailSalesPredictor:
         self.sales_data = sales_data
         self.calendar_data = calendar_data
         self.prices_data = prices_data
-
-    def preprocess_data(self, item_id, sales_data, calendar_data, prices_data): # Выбираем товар, подаем df: sales, 
+                                                                                # Мы заранее выбрали STORE 1
+    def preprocess_data(self, item_id, sales_data, calendar_data, prices_data): # Выбираем товар (item_id) из магазина STORE 1, подаем  df: sales, calendar, price
         item = item_id
         sales = sales_data
-        
-        ### Обрабатываем основную таблицу 
+
+        ### Обрабатываем основную таблицу sales_data и отбираем ряд для конкретного товара
 
         customer = sales[(sales['store_id'] == 'STORE_1') & (sales['item_id'] == f'STORE_1_{item}')]
+        customer = pd.merge(customer, calendar_data, on='date_id', how='inner')
         customer = customer.rename(columns={'date': 'ds', 'cnt': 'y'})
-        customer = customer.sort_values('ds')
+        customer = customer[['ds', 'y']]
 
         customer['ds'] = pd.to_datetime(customer['ds'])
 
@@ -44,7 +46,7 @@ class RetailSalesPredictor:
         holidays['ds'] = pd.to_datetime(holidays['ds'])
 
         # Создание DataFrame с будущими датами праздников
-        future_years = [2024, 2025, 2026]
+        future_years = [2016, 2017]
         future_holidays = []
 
         for year in future_years:
@@ -85,65 +87,46 @@ class RetailSalesPredictor:
         customer = customer.merge(item_prices[['ds', 'price']], on='ds', how='left')
 
         return f'STORE_1_{item}', customer, all_holidays
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     
-    def train_model(self):
-        for item_id in self.data['item_id'].unique():
-            item_data = self.data[self.data['item_id'] == item_id]
-            model = Prophet(holidays=self.holidays)
-            model.fit(item_data)
-            self.models[item_id] = model
-    
-    def evaluate_model(self, test_data):
-        mse_list = []
-        mae_list = []
-        
-        for item_id in self.models.keys():
-            item_test_data = test_data[(test_data['store_id'] == self.store_id) & (test_data['item_id'] == item_id)]
-            item_test_data = item_test_data.rename(columns={'date': 'ds', 'sales': 'y'})
-            
-            future = self.models[item_id].make_future_dataframe(periods=len(item_test_data))
-            forecast = self.models[item_id].predict(future)
-            forecast = forecast[['ds', 'yhat']].tail(len(item_test_data))
-            
-            actual = item_test_data['y'].values
-            predicted = forecast['yhat'].values
-            
-            mse = mean_squared_error(actual, predicted)
-            mae = mean_absolute_error(actual, predicted)
-            
-            mse_list.append(mse)
-            mae_list.append(mae)
-        
-        return np.mean(mse_list), np.mean(mae_list)
-    
-    def save_model(self, path):
-        with open(os.path.join(path, f'model_store_{self.store_id}.pkl'), 'wb') as f:
-            pickle.dump(self.models, f)
-    
-    def load_model(self, path):
-        with open(os.path.join(path, f'model_store_{self.store_id}.pkl'), 'rb') as f:
-            self.models = pickle.load(f)
-    
-    def predict_sales(self, periods):
-        predictions = {}
-        
-        for item_id, model in self.models.items():
-            future = model.make_future_dataframe(periods=periods)
-            forecast = model.predict(future)
-            predictions[item_id] = forecast[['ds', 'yhat']].tail(periods)
-        
-        return predictions
+    def train_model(self, df, holydays, test_size = 30):
+        train_data = df.iloc[:test_size]
+        test_data = df.iloc[test_size:]
+
+        # Создание и обучение модели Prophet с праздниками и регрессором
+        model = Prophet(holidays=holydays)
+        model.add_regressor('price')
+
+        # Обучение модели
+        model.fit(train_data)
+        return model, train_data, test_data
+
+    def predict_and_evaluate(self, model, customer, period, test_data):
+        # Создание прогноза для тестовой выборки
+        future = model.make_future_dataframe(periods=period)
+        # Объединяем данные о будущем с будущими ценами (предполагается, что у вас есть прогноз цен или просто используем последние известные цены)
+        future = future.merge(customer[['ds', 'price']], on='ds', how='left')
+
+        # Предсказание
+        forecast = model.predict(future)
+
+        # Выборка последних 30 дней прогноза
+        predicted = forecast[['ds', 'yhat']].tail(period)
+
+        # Метрики точности прогноза
+        actual = test_data['y'].values
+        predicted_values = predicted['yhat'].values
+
+        mse = mean_squared_error(actual, predicted_values)
+        mae = mean_absolute_error(actual, predicted_values)
+
+        print(f'Mean Squared Error: {mse}')
+        print(f'Mean Absolute Error: {mae}')
+
+        # Визуализация прогноза
+        fig1 = model.plot(forecast)
+        plt.show()
+
+        # Визуализация компонентов прогноза
+        fig2 = model.plot_components(forecast)
+        plt.show()
+
